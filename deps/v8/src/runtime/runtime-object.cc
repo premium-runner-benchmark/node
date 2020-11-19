@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "src/ast/prettyprinter.h"
+#include "src/common/globals.h"
 #include "src/common/message-template.h"
 #include "src/debug/debug.h"
 #include "src/execution/arguments-inl.h"
@@ -108,8 +109,8 @@ bool DeleteObjectPropertyFast(Isolate* isolate, Handle<JSReceiver> receiver,
   int nof = receiver_map->NumberOfOwnDescriptors();
   if (nof == 0) return false;
   InternalIndex descriptor(nof - 1);
-  Handle<DescriptorArray> descriptors(receiver_map->instance_descriptors(),
-                                      isolate);
+  Handle<DescriptorArray> descriptors(
+      receiver_map->instance_descriptors(kRelaxedLoad), isolate);
   if (descriptors->GetKey(descriptor) != *key) return false;
   // (3) The property to be deleted must be deletable.
   PropertyDetails details = descriptors->GetDetails(descriptor);
@@ -365,11 +366,21 @@ RUNTIME_FUNCTION(Runtime_AddDictionaryProperty) {
 
   DCHECK(name->IsUniqueName());
 
-  Handle<NameDictionary> dictionary(receiver->property_dictionary(), isolate);
   PropertyDetails property_details(kData, NONE, PropertyCellType::kNoCell);
-  dictionary =
-      NameDictionary::Add(isolate, dictionary, name, value, property_details);
-  receiver->SetProperties(*dictionary);
+  if (V8_DICT_MODE_PROTOTYPES_BOOL) {
+    Handle<OrderedNameDictionary> dictionary(
+        receiver->property_dictionary_ordered(), isolate);
+    dictionary = OrderedNameDictionary::Add(isolate, dictionary, name, value,
+                                            property_details)
+                     .ToHandleChecked();
+    receiver->SetProperties(*dictionary);
+  } else {
+    Handle<NameDictionary> dictionary(receiver->property_dictionary(), isolate);
+    dictionary =
+        NameDictionary::Add(isolate, dictionary, name, value, property_details);
+    receiver->SetProperties(*dictionary);
+  }
+
   return *value;
 }
 
@@ -624,7 +635,7 @@ RUNTIME_FUNCTION(Runtime_GetProperty) {
       if (holder->IsJSGlobalObject()) {
         // Attempt dictionary lookup.
         GlobalDictionary dictionary =
-            JSGlobalObject::cast(*holder).global_dictionary();
+            JSGlobalObject::cast(*holder).global_dictionary(kAcquireLoad);
         InternalIndex entry = dictionary.FindEntry(isolate, key);
         if (entry.is_found()) {
           PropertyCell cell = dictionary.CellAt(entry);
@@ -636,11 +647,21 @@ RUNTIME_FUNCTION(Runtime_GetProperty) {
         }
       } else if (!holder->HasFastProperties()) {
         // Attempt dictionary lookup.
-        NameDictionary dictionary = holder->property_dictionary();
-        InternalIndex entry = dictionary.FindEntry(isolate, key);
-        if ((entry.is_found()) &&
-            (dictionary.DetailsAt(entry).kind() == kData)) {
-          return dictionary.ValueAt(entry);
+        if (V8_DICT_MODE_PROTOTYPES_BOOL) {
+          OrderedNameDictionary dictionary =
+              holder->property_dictionary_ordered();
+          InternalIndex entry = dictionary.FindEntry(isolate, *key);
+          if (entry.is_found() &&
+              (dictionary.DetailsAt(entry).kind() == kData)) {
+            return dictionary.ValueAt(entry);
+          }
+        } else {
+          NameDictionary dictionary = holder->property_dictionary();
+          InternalIndex entry = dictionary.FindEntry(isolate, key);
+          if ((entry.is_found()) &&
+              (dictionary.DetailsAt(entry).kind() == kData)) {
+            return dictionary.ValueAt(entry);
+          }
         }
       }
     } else if (key_obj->IsSmi()) {
@@ -760,10 +781,19 @@ RUNTIME_FUNCTION(Runtime_ShrinkPropertyDictionary) {
   HandleScope scope(isolate);
   DCHECK_EQ(1, args.length());
   CONVERT_ARG_HANDLE_CHECKED(JSReceiver, receiver, 0);
-  Handle<NameDictionary> dictionary(receiver->property_dictionary(), isolate);
-  Handle<NameDictionary> new_properties =
-      NameDictionary::Shrink(isolate, dictionary);
-  receiver->SetProperties(*new_properties);
+  if (V8_DICT_MODE_PROTOTYPES_BOOL) {
+    Handle<OrderedNameDictionary> dictionary(
+        receiver->property_dictionary_ordered(), isolate);
+    Handle<OrderedNameDictionary> new_properties =
+        OrderedNameDictionary::Shrink(isolate, dictionary);
+    receiver->SetProperties(*new_properties);
+  } else {
+    Handle<NameDictionary> dictionary(receiver->property_dictionary(), isolate);
+    Handle<NameDictionary> new_properties =
+        NameDictionary::Shrink(isolate, dictionary);
+    receiver->SetProperties(*new_properties);
+  }
+
   return Smi::zero();
 }
 
@@ -859,9 +889,7 @@ RUNTIME_FUNCTION(Runtime_CompleteInobjectSlackTrackingForMap) {
 RUNTIME_FUNCTION(Runtime_TryMigrateInstance) {
   HandleScope scope(isolate);
   DCHECK_EQ(1, args.length());
-  CONVERT_ARG_HANDLE_CHECKED(Object, object, 0);
-  if (!object->IsJSObject()) return Smi::zero();
-  Handle<JSObject> js_object = Handle<JSObject>::cast(object);
+  CONVERT_ARG_HANDLE_CHECKED(JSObject, js_object, 0);
   // It could have been a DCHECK but we call this function directly from tests.
   if (!js_object->map().is_deprecated()) return Smi::zero();
   // This call must not cause lazy deopts, because it's called from deferred
@@ -869,7 +897,7 @@ RUNTIME_FUNCTION(Runtime_TryMigrateInstance) {
   // ID. So we just try migration and signal failure if necessary,
   // which will also trigger a deopt.
   if (!JSObject::TryMigrateInstance(isolate, js_object)) return Smi::zero();
-  return *object;
+  return *js_object;
 }
 
 static bool IsValidAccessor(Isolate* isolate, Handle<Object> obj) {
@@ -1070,7 +1098,8 @@ RUNTIME_FUNCTION(Runtime_CopyDataPropertiesWithExcludedProperties) {
 
   // If source is undefined or null, throw a non-coercible error.
   if (source->IsNullOrUndefined(isolate)) {
-    return ErrorUtils::ThrowLoadFromNullOrUndefined(isolate, source);
+    return ErrorUtils::ThrowLoadFromNullOrUndefined(isolate, source,
+                                                    MaybeHandle<Object>());
   }
 
   ScopedVector<Handle<Object>> excluded_properties(args.length() - 1);

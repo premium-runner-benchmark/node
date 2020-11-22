@@ -25,6 +25,7 @@ jobs:
       - uses: actions/setup-node@v2.1.2
       - name: Environment Information
         run: |
+          npm install
           npm i -g npx
           npx envinfo
       - name: Build

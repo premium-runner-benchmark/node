@@ -15,7 +15,7 @@ env:
 
 jobs:
   test-linux:
-    runs-on: ubuntu-latest
+    runs-on: [m5large]
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ env.PYTHON_VERSION }}
@@ -26,20 +26,5 @@ jobs:
         run: npx envinfo
       - name: Build
         run: make build-ci -j2 V=1 CONFIG_FLAGS="--error-on-warn"
-      - name: Test
-        run: make run-ci -j2 V=1 TEST_CI_ARGS="-p actions"
-
-  test-linux-with-quic:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v2
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      - name: Environment Information
-        run: npx envinfo
-      - name: Build
-        run: make build-ci -j2 V=1 CONFIG_FLAGS="--error-on-warn --experimental-quic"
       - name: Test
         run: make run-ci -j2 V=1 TEST_CI_ARGS="-p actions"

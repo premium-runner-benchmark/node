@@ -15,14 +15,14 @@ env:
 
 jobs:
   test-linux:
-    runs-on: [m5large]
+    runs-on: [m5dlarge]
     steps:
-      - uses: actions/setup-node@v2.1.2
       - uses: actions/checkout@v2
       - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v2
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/setup-node@v2.1.2
       - name: Environment Information
         run: |
           npm i -g npx

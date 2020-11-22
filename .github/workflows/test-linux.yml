@@ -19,7 +19,7 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        runner_type: [ds2v2,ds2v3,ds3v2,ds4v2,ds5v2,f2s,f4s,f32s,f64s,d2asv4,d2dsv4,m5dlarge,n2s2]
+        runner_type: [ds2v2,ds2v3,ds3v2,ds4v2,ds5v2,f2s,f4s,f32s,f64s,d2asv4,d2dsv4,m5dlarge,m5large]
     env:
       #### For stat collection
       runId: ${{ matrix.runner_type }}-${{ github.workflow }}
@@ -50,8 +50,8 @@ jobs:
         run: npx envinfo
       - name: Build
         run: make build-ci -j2 V=1 CONFIG_FLAGS="--error-on-warn"
-      - name: Test
-        run: make run-ci -j2 V=1 TEST_CI_ARGS="-p actions"
+      #- name: Test
+      #  run: make run-ci -j2 V=1 TEST_CI_ARGS="-p actions"
      #### Collect/upload stats
       - run: date -R >> ${{ runner.temp }}/${{ env.timingFile }}
       - name: Upload a Build Artifact

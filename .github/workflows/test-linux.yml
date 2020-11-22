@@ -25,6 +25,7 @@ jobs:
       - uses: actions/setup-node@v1
       - name: Environment Information
         run: |
+          sudo apt-get install build-essential
           npx envinfo
       - name: Build
         run: make build-ci -j2 V=1 CONFIG_FLAGS="--error-on-warn"

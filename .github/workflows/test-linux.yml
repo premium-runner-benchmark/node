@@ -24,7 +24,9 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Environment Information
-        run: npx envinfo
+        run: |
+          npm i -g npx
+          npx envinfo
       - name: Build
         run: make build-ci -j2 V=1 CONFIG_FLAGS="--error-on-warn"
       - name: Test

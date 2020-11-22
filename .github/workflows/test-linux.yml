@@ -17,10 +17,7 @@ jobs:
   test-linux:
     runs-on: [m5large]
     steps:
-      - run: |
-          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.0/install.sh | bash
-          source ~/.nvm/nvm.sh
-          nvm install 14.15.1
+      - uses: actions/setup-node@v2.1.2
       - uses: actions/checkout@v2
       - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v2

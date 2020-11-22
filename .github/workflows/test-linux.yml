@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - uses: actions/setup-node@v2.1.2
+      - uses: actions/setup-node@v1
       - name: Environment Information
         run: |
           sudo apt install npm

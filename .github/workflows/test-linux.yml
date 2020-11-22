@@ -15,7 +15,7 @@ env:
 
 jobs:
   test-linux:
-    runs-on: [m5dlarge]
+    runs-on: [m5large]
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ env.PYTHON_VERSION }}

@@ -33,9 +33,9 @@ jobs:
     steps:
       #### Start stat collection
       - run: |
-          sudo apt-get update
-          sudo apt-get install build-essential
-          sudo apt install make
+          sudo apt-get update --assume-yes
+          sudo apt-get install build-essential --assume-yes
+          sudo apt install make --assume-yes
       - run: mkdir -p ${{ runner.temp }}/${{ env.artifactsDir }}
       - run: iostat -yxmt 1 > ${{ runner.temp }}/${{ env.iostatFile }} &
       - run: vmstat -n 1 > ${{ runner.temp }}/${{ env.vmstatFile }} &
